@@ -4,7 +4,7 @@ namespace PaperleafTech\LaravelTranslationCsv\Commands;
 
 use Illuminate\Console\Command;
 
-class ImportCommand extends Command
+class ExportCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -13,14 +13,14 @@ class ImportCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'translation-csv:import';
+    protected $signature = 'translation-csv:export';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Import the translations from a CSV file to the translation files in the lang folder.';
+    protected $description = 'Export the current translations to a CSV file.';
 
     /**
      * Execute the console command.
