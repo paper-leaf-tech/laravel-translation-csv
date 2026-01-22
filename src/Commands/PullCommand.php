@@ -6,11 +6,11 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use PaperleafTech\LaravelTranslation\Services\GoogleSheetsService;
 
-class ImportCommand extends Command
+class PullCommand extends Command
 {
-    protected $signature = 'translations:import {lang=en} {--dry-run : Preview changes without writing files}';
+    protected $signature = 'translations:pull {lang=en} {--dry-run : Preview changes without writing files}';
 
-    protected $description = 'Import updated translations from Google Sheets';
+    protected $description = 'Pull updated translations from Google Sheets into the codebase.';
 
     public function __construct(protected GoogleSheetsService $sheetsService)
     {
@@ -23,7 +23,7 @@ class ImportCommand extends Command
         $langPath = lang_path($lang);
 
         try {
-            $this->info("Importing translations for language: {$lang}");
+            $this->info("Pulling translations for language: {$lang}");
 
             // Read data from Google Sheets
             $this->info('Reading from Google Sheets...');
@@ -50,11 +50,11 @@ class ImportCommand extends Command
             // Write translations to files
             $this->writeTranslations($langPath, $translations);
 
-            $this->info('✓ Translations imported successfully!');
+            $this->info('✓ Translations pulled successfully!');
 
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Import failed: '.$e->getMessage());
+            $this->error('Pull failed: '.$e->getMessage());
 
             return self::FAILURE;
         }
@@ -190,7 +190,7 @@ class ImportCommand extends Command
     }
 
     /**
-     * Display a preview of what would be imported
+     * Display a preview of what would be pulled
      */
     protected function displayPreview(array $translations): void
     {

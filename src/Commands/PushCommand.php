@@ -6,14 +6,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use PaperleafTech\LaravelTranslation\Services\GoogleSheetsService;
 
-class ExportCommand extends Command
+class PushCommand extends Command
 {
-    protected $signature = 'translations:export {lang=en} 
-        {--clear : Clear existing sheet data before export}
-        {--force-initial : Treat as initial export, leaving Updated Value empty}
-        {--no-backup : Skip creating a backup of the sheet before exporting}';
+    protected $signature = 'translations:push {lang=en} 
+        {--clear : Clear existing sheet data before push}
+        {--force-initial : Treat as initial push, leaving Updated Value empty}
+        {--no-backup : Skip creating a backup of the sheet before pushing}';
 
-    protected $description = 'Export Laravel translations to a connected Google Sheet.';
+    protected $description = 'Push codebase translations to a connected Google Sheet.';
 
     public function __construct(protected GoogleSheetsService $sheetsService)
     {
@@ -32,13 +32,13 @@ class ExportCommand extends Command
         }
 
         try {
-            $this->info("Exporting translations for language: {$lang}");
+            $this->info("Pushing translations for language: {$lang}");
 
             // Collect all translations from Laravel files
             $translations = $this->collectTranslations($langPath);
 
             if (empty($translations)) {
-                $this->warn('No translations found to export.');
+                $this->warn('No translations found to push.');
 
                 return self::SUCCESS;
             }
@@ -71,12 +71,12 @@ class ExportCommand extends Command
                 $this->sheetsService->clearSheetData("{$keyColumn}:{$updatedValueColumn}");
             }
 
-            // Determine export mode: initial or diff
+            // Determine push mode: initial or diff
             $forceInitial = $this->option('force-initial') || $this->option('clear');
-            $isInitialExport = $forceInitial || $this->isSheetEmpty();
+            $isInitialPush = $forceInitial || $this->isSheetEmpty();
 
-            if ($isInitialExport) {
-                $this->info('Performing initial export (Updated Value column will be empty)...');
+            if ($isInitialPush) {
+                $this->info('Performing initial push (Updated Value column will be empty)...');
                 $sheetData = $this->prepareInitialSheetData($translations);
             } else {
                 $this->info('Reading existing sheet data...');
@@ -94,12 +94,12 @@ class ExportCommand extends Command
             $range = "{$keyColumn}{$headerRow}:{$updatedValueColumn}";
             $this->sheetsService->updateSheetData($range, $sheetData);
 
-            $this->info('✓ Translations exported successfully!');
+            $this->info('✓ Translations pushed successfully!');
             $this->line('');
 
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Export failed: '.$e->getMessage());
+            $this->error('Push failed: '.$e->getMessage());
 
             return self::FAILURE;
         }
@@ -237,7 +237,7 @@ class ExportCommand extends Command
     }
 
     /**
-     * Prepare data for initial export (Updated Value column empty)
+     * Prepare data for initial push (Updated Value column empty)
      */
     protected function prepareInitialSheetData(array $translations): array
     {
@@ -257,7 +257,7 @@ class ExportCommand extends Command
     }
 
     /**
-     * Prepare data with diff logic for subsequent exports
+     * Prepare data with diff logic for subsequent pushes
      */
     protected function prepareSheetDataWithDiff(array $translations, array $existingData): array
     {
@@ -286,7 +286,7 @@ class ExportCommand extends Command
                     $data[] = [$key, $sheetValue, $sheetUpdated];
                     $stats['unchanged']++;
                 } else if ($codeValue === $sheetUpdated) {
-                    // Code value is the same as sheet updated (an import occured)
+                    // Code value is the same as sheet updated (an pull occured)
                     // Mark as unchanged
                     $data[] = [$key, $sheetValue, $sheetUpdated];
                     $stats['unchanged']++;
@@ -317,10 +317,10 @@ class ExportCommand extends Command
             $this->line("  - {$stats['removed']} key(s) removed");
         }
         if ($stats['changed'] > 0) {
-            $this->line("  - {$stats['changed']} original value(s) changed (Updated Value auto-updated)");
+            $this->line("  - {$stats['changed']} key(s) updated. These keys updated because the codebase had a different updated value than the spreadsheet.");
         }
         if ($stats['unchanged'] > 0) {
-            $this->line("  - {$stats['unchanged']} key(s) unchanged (Updated Values preserved)");
+            $this->line("  - {$stats['unchanged']} key(s) unchanged");
         }
 
         return $data;

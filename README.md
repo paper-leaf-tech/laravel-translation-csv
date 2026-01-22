@@ -4,7 +4,7 @@ Manage Laravel translation strings using Google Sheets. This package allows you 
 
 ## Features
 
-- 🔄 **Bi-directional sync** - Export Laravel translations to Google Sheets and import updates back
+- 🔄 **Bi-directional sync** - Push Laravel translations to Google Sheets and pull updates back
 - 🔐 **Service Account authentication** - Simple, secure authentication using Google service accounts
 - 📝 **Nested translations** - Automatically handles nested translation arrays using dot notation
 - 🌍 **Multi-language support** - Manage translations for any language
@@ -16,75 +16,46 @@ Manage Laravel translation strings using Google Sheets. This package allows you 
 
 Install the package via Composer:
 
-```bash
-composer require paper-leaf-tech/laravel-translation
+First, you'll need to make composer able to see this project. Add the following to your composer.json before trying to require it:
+```
+"repositories": [
+    {
+        "type": "github",
+        "url": "git@github.com:paper-leaf-tech/laravel-translation.git"
+    }
+],
 ```
 
-Publish the configuration file:
+```bash
+composer require paper-leaf-tech/laravel-translation --dev
+```
+
+Optionally, publish the configuration file:
 
 ```bash
 php artisan vendor:publish --tag=laravel-translation-config
 ```
 
-> **Note**: You can install and configure the package without setting up Google Sheets credentials immediately. The credentials are only required when you run the `translations:import` or `translations:export` commands.
+## Setup
 
-## Google Cloud Setup
+### 1. Download Service Account Credentials
 
-### 1. Create a Google Cloud Project
+1. A service account with credentials has already been created under the tech@paper-leaf.com account.
+2. Check 1pass for "Laravel Translations Service Account" and save the note's content to `storage/app/laravel-translations-account.json`.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **Google Sheets API**:
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Sheets API"
-   - Click "Enable"
-
-### 2. Create a Service Account
-
-1. Navigate to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "Service Account"
-3. Fill in the service account details:
-   - **Name**: Laravel Translation Manager (or any name you prefer)
-   - **Description**: Service account for managing Laravel translations
-4. Click "Create and Continue"
-5. Skip the optional steps and click "Done"
-
-### 3. Download Service Account Credentials
-
-1. In the "Credentials" page, find your newly created service account
-2. Click on the service account email
-3. Go to the "Keys" tab
-4. Click "Add Key" > "Create new key"
-5. Select "JSON" format
-6. Click "Create" - a JSON file will be downloaded
-
-### 4. Store the Credentials
-
-Move the downloaded JSON file to your Laravel application:
-
-```bash
-# Recommended location
-mv ~/Downloads/your-service-account-file.json storage/app/laravel-translations-account.json
-```
-
-> **Important**: Add this file to your `.gitignore` to prevent committing credentials to version control!
+> **Important**: By default this file should be git ignored, but you can explicitly ignore this by editting your project's `.gitignore`.
 
 ```
 # .gitignore
 storage/app/laravel-translations-account.json
 ```
 
-### 5. Create and Share Your Google Sheet
+### 2. Create and Share Your Google Sheet
 
 1. Create a new Google Spreadsheet or use an existing one
-2. Open the service account JSON file and find the `client_email` field
-3. Share your Google Sheet with this email address:
-   - Click "Share" in Google Sheets
-   - Paste the service account email (e.g., `laravel-translation@project-id.iam.gserviceaccount.com`)
-   - Grant "Editor" permissions
-   - Click "Send"
+2. Share the sheet with "laravel-translation-manager@laravel-translations-sheets.iam.gserviceaccount.com", granting edit access.
 
-### 6. Get Your Spreadsheet ID
+### 3. Get Your Spreadsheet ID
 
 The spreadsheet ID is in the URL:
 ```
@@ -98,9 +69,6 @@ Copy the `SPREADSHEET_ID_HERE` portion.
 Add the following to your `.env` file:
 
 ```env
-# Path to your service account JSON file
-GOOGLE_SHEETS_CREDENTIALS_PATH="${STORAGE_PATH}/app/laravel-translations-account.json"
-
 # Your Google Spreadsheet ID (from the URL)
 GOOGLE_SHEETS_SPREADSHEET_ID="your-spreadsheet-id-here"
 
@@ -112,49 +80,24 @@ GOOGLE_SHEETS_SHEET_NAME="Translations"
 
 You can customize additional settings in `config/laravel-translation.php`:
 
-```php
-return [
-    // Credentials path
-    'credentials_path' => env('GOOGLE_SHEETS_CREDENTIALS_PATH'),
-    
-    // Spreadsheet ID
-    'spreadsheet_id' => env('GOOGLE_SHEETS_SPREADSHEET_ID'),
-    
-    // Sheet name (null = first sheet)
-    'sheet_name' => env('GOOGLE_SHEETS_SHEET_NAME', null),
-    
-    // Column for translation keys
-    'key_column' => 'A',
-    
-    // Column for original translation values (preserved for reference)
-    'original_value_column' => 'B',
-    
-    // Column for updated translation values (managed by content editors)
-    'updated_value_column' => 'C',
-    
-    // Header row number (null = no headers)
-    'header_row' => 1,
-];
-```
-
 ## Usage
 
-### Export Translations to Google Sheets
+### Push Translations to Google Sheets
 
-Export your Laravel translation files to Google Sheets:
+Push your Laravel translation files to Google Sheets:
 
 ```bash
-# Export English translations (automatically creates a backup)
-php artisan translations:export en
+# Push English translations (automatically creates a backup)
+php artisan translations:push en
 
-# Export without creating a backup
-php artisan translations:export en --no-backup
+# Push without creating a backup
+php artisan translations:push en --no-backup
 
-# Export other languages
-php artisan translations:export es
+# Push other languages
+php artisan translations:push es
 
-# Clear existing sheet data before export
-php artisan translations:export en --clear
+# Clear existing sheet data before push
+php artisan translations:push en --clear
 ```
 
 This command will:
@@ -165,16 +108,16 @@ This command will:
   - **Column B (Original Value)**: The original translation value (preserved for reference)
   - **Column C (Updated Value)**: Initially same as original, this is where content editors make changes
 
-### Import Translations from Google Sheets
+### Pull Translations from Google Sheets
 
-Import updated translations from Google Sheets back to Laravel:
+Pull updated translations from Google Sheets back to Laravel:
 
 ```bash
-# Import English translations
-php artisan translations:import en
+# Pull English translations
+php artisan translations:pull en
 
 # Preview changes without writing files
-php artisan translations:import en --dry-run
+php artisan translations:pull en --dry-run
 ```
 
 This command will:
@@ -220,9 +163,9 @@ return [
 ## Workflow Example
 
 ### Initial Setup
-1. Export your existing Laravel translations to Google Sheets:
+1. Push your existing Laravel translations to Google Sheets:
    ```bash
-   php artisan translations:export en --clear
+   php artisan translations:push en
    ```
    This creates three columns:
    - **Column A**: Translation keys (e.g., `auth.failed`)
@@ -234,15 +177,15 @@ return [
 ### Making Updates
 1. Content editors modify translations in **Column C (Updated Value)**
    - Column B remains unchanged for reference
-   - If Column C is empty, the import will use Column B's value
+   - If Column C is empty, the pull will use Column B's value
 
-2. Import the updates:
+2. Pull the updates:
    ```bash
    # Preview changes first
-   php artisan translations:import en --dry-run
+   php artisan translations:pull en --dry-run
    
    # Apply changes
-   php artisan translations:import en
+   php artisan translations:pull en
    ```
 
 3. Commit the updated translation files to your repository
@@ -251,7 +194,7 @@ return [
 - **Never edit Column B (Original Value)** - This preserves the baseline translations
 - **Make all edits in Column C (Updated Value)** - This is where content editors work
 - **Leave Column C empty** to use the original value from Column B
-- **Re-export periodically** to sync new translation keys added in code
+- **Re-push periodically** to sync new translation keys added in code
 
 ## Troubleshooting
 
@@ -275,7 +218,7 @@ return [
 **Error:** `Google Sheets credentials file contains invalid JSON`
 
 **Solution:** 
-- Re-download the service account JSON file from Google Cloud Console
+- Re-download the service account JSON file from 1Password
 - Ensure you selected "JSON" format when creating the key
 - Verify the file is a valid service account credential (should have `"type": "service_account"`)
 
@@ -286,39 +229,18 @@ return [
 **Solution:**
 - Verify the spreadsheet ID in your configuration
 - Ensure the spreadsheet hasn't been deleted
-- Check that the service account has access to the sheet
-
-### Getting Service Account Email
-
-If you need to find your service account email to share the sheet:
-
-```bash
-# View the credentials file
-cat storage/app/laravel-translations-account.json | grep client_email
-```
-
-Or use the helper method in your code:
-```php
-use PaperleafTech\LaravelTranslation\Services\GoogleSheetsService;
-
-$service = app(GoogleSheetsService::class);
-$email = $service->getServiceAccountEmail();
-```
+- Check that the service account has editor access to the sheet
 
 ## Security Considerations
 
 - **Never commit your service account JSON file** to version control
 - Store credentials in `storage/app/` which is typically excluded from version control
 - Use environment variables for configuration
-- Limit service account permissions to only Google Sheets API
-- Regularly rotate service account keys if needed
 
 ## Requirements
 
 - PHP 8.2 or higher
 - Laravel 10.x or higher
-- Google Cloud project with Sheets API enabled
-- Service account with access to your Google Sheet
 
 ## License
 
@@ -326,7 +248,7 @@ This package is open-sourced software licensed under the [MIT license](LICENSE.m
 
 ## Credits
 
-- [Brendan Angerman](https://github.com/paper-leaf-tech)
+- [Brendan Angerman](https://github.com/bAngerman)
 - Built with [Spatie Laravel Package Tools](https://github.com/spatie/laravel-package-tools)
 - Uses [Google API PHP Client](https://github.com/googleapis/google-api-php-client)
 

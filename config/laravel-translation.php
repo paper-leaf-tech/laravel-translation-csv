@@ -80,7 +80,7 @@ return [
     |
     | The column letter or index for updated translation values.
     | Content editors manage translations in this column.
-    | When importing, this column takes priority over the original value column.
+    | When pulling, this column takes priority over the original value column.
     | Default: 'C' (third column)
     |
     */
