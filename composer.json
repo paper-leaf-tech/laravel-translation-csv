@@ -4,7 +4,8 @@
   "license": "MIT",
   "require": {
     "php": "^8.2",
-    "spatie/laravel-package-tools": "^1.92"
+    "spatie/laravel-package-tools": "^1.92",
+    "google/apiclient": "^2.19"
   },
   "autoload": {
       "psr-4": {
@@ -20,11 +21,18 @@
   "require-dev": {
     "laravel/pint": "^1.24"
   },
+  "scripts": {
+    "pre-autoload-dump": "Google\\Task\\Composer::cleanup"
+  },
   "extra": {
     "laravel": {
       "providers": [
         "PaperleafTech\\LaravelTranslation\\LaravelTranslationServiceProvider"
       ]
-    }
+    },
+    "google/apiclient-services": [
+      "Sheets"
+    ]
   }
 }
+

@@ -3,14 +3,11 @@
 namespace PaperleafTech\LaravelTranslation\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
-use AJThinking\Archetype\Archetype;
-use AJThinking\Archetype\Nodes\Expr;
 
 class ImportCommand extends Command
 {
     protected $signature = 'translations:import {lang=en}';
-    protected $description = 'Import translated values from and generate executable translation overrides';
+    protected $description = 'Import updated translations from Google Sheets';
 
     public function handle(): int
     {
