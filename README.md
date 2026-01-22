@@ -26,6 +26,8 @@ Publish the configuration file:
 php artisan vendor:publish --tag=laravel-translation-config
 ```
 
+> **Note**: You can install and configure the package without setting up Google Sheets credentials immediately. The credentials are only required when you run the `translations:import` or `translations:export` commands.
+
 ## Google Cloud Setup
 
 ### 1. Create a Google Cloud Project

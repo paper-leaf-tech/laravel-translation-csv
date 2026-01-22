@@ -9,20 +9,30 @@ use Illuminate\Support\Facades\File;
 
 class GoogleSheetsService
 {
-    protected Client $client;
+    protected ?Client $client = null;
 
-    protected Sheets $service;
+    protected ?Sheets $service = null;
 
-    protected string $spreadsheetId;
+    protected ?string $spreadsheetId = null;
 
-    protected ?string $sheetName;
+    protected ?string $sheetName = null;
 
-    public function __construct()
+    protected bool $initialized = false;
+
+    /**
+     * Ensure the service is initialized before use
+     */
+    protected function ensureInitialized(): void
     {
+        if ($this->initialized) {
+            return;
+        }
+
         $this->validateConfiguration();
         $this->initializeClient();
         $this->spreadsheetId = config('laravel-translation.spreadsheet_id');
         $this->sheetName = config('laravel-translation.sheet_name');
+        $this->initialized = true;
     }
 
     /**
@@ -89,6 +99,8 @@ class GoogleSheetsService
      */
     public function getClient(): Client
     {
+        $this->ensureInitialized();
+
         return $this->client;
     }
 
@@ -97,6 +109,8 @@ class GoogleSheetsService
      */
     public function getService(): Sheets
     {
+        $this->ensureInitialized();
+
         return $this->service;
     }
 
@@ -108,6 +122,8 @@ class GoogleSheetsService
      */
     public function getSheetData(string $range): array
     {
+        $this->ensureInitialized();
+
         try {
             // If sheet name is configured and range doesn't include sheet name, prepend it
             if ($this->sheetName && ! str_contains($range, '!')) {
@@ -134,6 +150,8 @@ class GoogleSheetsService
      */
     public function updateSheetData(string $range, array $values): bool
     {
+        $this->ensureInitialized();
+
         try {
             // If sheet name is configured and range doesn't include sheet name, prepend it
             if ($this->sheetName && ! str_contains($range, '!')) {
@@ -169,6 +187,8 @@ class GoogleSheetsService
      */
     public function clearSheetData(string $range): bool
     {
+        $this->ensureInitialized();
+
         try {
             // If sheet name is configured and range doesn't include sheet name, prepend it
             if ($this->sheetName && ! str_contains($range, '!')) {
@@ -196,6 +216,8 @@ class GoogleSheetsService
      */
     public function appendSheetData(string $range, array $values): bool
     {
+        $this->ensureInitialized();
+
         try {
             // If sheet name is configured and range doesn't include sheet name, prepend it
             if ($this->sheetName && ! str_contains($range, '!')) {
