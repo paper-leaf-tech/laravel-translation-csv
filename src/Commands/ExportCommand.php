@@ -8,7 +8,9 @@ use PaperleafTech\LaravelTranslation\Services\GoogleSheetsService;
 
 class ExportCommand extends Command
 {
-    protected $signature = 'translations:export {lang=en} {--clear : Clear existing sheet data before export}';
+    protected $signature = 'translations:export {lang=en} 
+        {--clear : Clear existing sheet data before export}
+        {--force-initial : Treat as initial export, leaving Updated Value empty}';
 
     protected $description = 'Export Laravel translations to a connected Google Sheet.';
 
@@ -31,7 +33,7 @@ class ExportCommand extends Command
         try {
             $this->info("Exporting translations for language: {$lang}");
 
-            // Collect all translations
+            // Collect all translations from Laravel files
             $translations = $this->collectTranslations($langPath);
 
             if (empty($translations)) {
@@ -42,15 +44,26 @@ class ExportCommand extends Command
 
             $this->info('Found '.count($translations).' translation keys.');
 
-            // Prepare data for Google Sheets
-            $sheetData = $this->prepareSheetData($translations);
-
             // Clear existing data if requested
             if ($this->option('clear')) {
                 $this->info('Clearing existing sheet data...');
                 $keyColumn = config('laravel-translation.key_column', 'A');
                 $updatedValueColumn = config('laravel-translation.updated_value_column', 'C');
                 $this->sheetsService->clearSheetData("{$keyColumn}:{$updatedValueColumn}");
+            }
+
+            // Determine export mode: initial or diff
+            $forceInitial = $this->option('force-initial') || $this->option('clear');
+            $isInitialExport = $forceInitial || $this->isSheetEmpty();
+
+            if ($isInitialExport) {
+                $this->info('Performing initial export (Updated Value column will be empty)...');
+                $sheetData = $this->prepareInitialSheetData($translations);
+            } else {
+                $this->info('Reading existing sheet data...');
+                $existingData = $this->readExistingSheetData();
+                $this->info('Comparing with current translations...');
+                $sheetData = $this->prepareSheetDataWithDiff($translations, $existingData);
             }
 
             // Write to Google Sheets
@@ -64,7 +77,6 @@ class ExportCommand extends Command
 
             $this->info('✓ Translations exported successfully!');
             $this->line('');
-            $this->line("Spreadsheet ID: {$this->sheetsService->getClient()->getConfig('spreadsheet_id')}");
 
             return self::SUCCESS;
         } catch (\Exception $e) {
@@ -148,9 +160,67 @@ class ExportCommand extends Command
     }
 
     /**
-     * Prepare data in the format expected by Google Sheets
+     * Check if the sheet is empty or only has headers
      */
-    protected function prepareSheetData(array $translations): array
+    protected function isSheetEmpty(): bool
+    {
+        try {
+            $keyColumn = config('laravel-translation.key_column', 'A');
+            $updatedValueColumn = config('laravel-translation.updated_value_column', 'C');
+            $headerRow = config('laravel-translation.header_row', 1);
+
+            $range = "{$keyColumn}{$headerRow}:{$updatedValueColumn}";
+            $data = $this->sheetsService->getSheetData($range);
+
+            // Empty if no data or only header row
+            return empty($data) || count($data) <= 1;
+        } catch (\Exception $e) {
+            // If we can't read the sheet, treat as empty
+            return true;
+        }
+    }
+
+    /**
+     * Read existing sheet data into an associative array
+     */
+    protected function readExistingSheetData(): array
+    {
+        $keyColumn = config('laravel-translation.key_column', 'A');
+        $updatedValueColumn = config('laravel-translation.updated_value_column', 'C');
+        $headerRow = config('laravel-translation.header_row', 1);
+
+        $range = "{$keyColumn}{$headerRow}:{$updatedValueColumn}";
+        $data = $this->sheetsService->getSheetData($range);
+
+        // Remove header row if it exists
+        if ($headerRow && ! empty($data)) {
+            array_shift($data);
+        }
+
+        // Convert to associative array: key => [original, updated]
+        $existingData = [];
+        foreach ($data as $row) {
+            if (empty($row[0])) {
+                continue; // Skip empty keys
+            }
+
+            $key = $row[0];
+            $original = $row[1] ?? '';
+            $updated = $row[2] ?? '';
+
+            $existingData[$key] = [
+                'original' => $original,
+                'updated' => $updated,
+            ];
+        }
+
+        return $existingData;
+    }
+
+    /**
+     * Prepare data for initial export (Updated Value column empty)
+     */
+    protected function prepareInitialSheetData(array $translations): array
     {
         $data = [];
 
@@ -159,10 +229,73 @@ class ExportCommand extends Command
             $data[] = ['Key', 'Original Value', 'Updated Value'];
         }
 
-        // Add translation rows
-        // Initially, both Original Value and Updated Value are the same
+        // Add translation rows with empty Updated Value
         foreach ($translations as $key => $value) {
-            $data[] = [$key, $value, $value];
+            $data[] = [$key, $value, ''];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Prepare data with diff logic for subsequent exports
+     */
+    protected function prepareSheetDataWithDiff(array $translations, array $existingData): array
+    {
+        $data = [];
+        $stats = [
+            'new' => 0,
+            'removed' => 0,
+            'changed' => 0,
+            'unchanged' => 0,
+        ];
+
+        // Add header row if configured
+        if (config('laravel-translation.header_row')) {
+            $data[] = ['Key', 'Original Value', 'Updated Value'];
+        }
+
+        // Process each translation from code
+        foreach ($translations as $key => $newOriginal) {
+            if (isset($existingData[$key])) {
+                // Key exists in sheet
+                $existingOriginal = $existingData[$key]['original'];
+                $existingUpdated = $existingData[$key]['updated'];
+
+                if ($newOriginal === $existingOriginal) {
+                    // Original unchanged - preserve existing Updated Value
+                    $data[] = [$key, $newOriginal, $existingUpdated];
+                    $stats['unchanged']++;
+                } else {
+                    // Original changed - auto-update Updated Value to new original
+                    $data[] = [$key, $newOriginal, $newOriginal];
+                    $stats['changed']++;
+                }
+            } else {
+                // New key - leave Updated Value empty
+                $data[] = [$key, $newOriginal, ''];
+                $stats['new']++;
+            }
+        }
+
+        // Count removed keys (in sheet but not in code)
+        $codeKeys = array_keys($translations);
+        $sheetKeys = array_keys($existingData);
+        $removedKeys = array_diff($sheetKeys, $codeKeys);
+        $stats['removed'] = count($removedKeys);
+
+        // Display stats
+        if ($stats['new'] > 0) {
+            $this->line("  - {$stats['new']} new key(s) added");
+        }
+        if ($stats['removed'] > 0) {
+            $this->line("  - {$stats['removed']} key(s) removed");
+        }
+        if ($stats['changed'] > 0) {
+            $this->line("  - {$stats['changed']} original value(s) changed (Updated Value auto-updated)");
+        }
+        if ($stats['unchanged'] > 0) {
+            $this->line("  - {$stats['unchanged']} key(s) unchanged (Updated Values preserved)");
         }
 
         return $data;
