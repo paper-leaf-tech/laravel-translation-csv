@@ -45,8 +45,11 @@ class ExportCommand extends Command
 
             $this->info('Found '.count($translations).' translation keys.');
 
-            // Create backup by default (unless --no-backup)
-            if (! $this->option('no-backup')) {
+            // Check if sheet is empty
+            $isSheetEmpty = $this->isSheetEmpty();
+
+            // Create backup by default (unless --no-backup or sheet is empty)
+            if (! $this->option('no-backup') && ! $isSheetEmpty) {
                 $this->info('Creating backup sheet...');
                 $backupName = $this->sheetsService->createBackup();
                 $this->info("Backup created: {$backupName}");
@@ -56,6 +59,8 @@ class ExportCommand extends Command
                 if ($deleted > 0) {
                     $this->info("Pruned {$deleted} old backup(s).");
                 }
+            } elseif ($isSheetEmpty) {
+                // $this->info('Skipping backup (sheet is empty).');
             }
 
             // Clear existing data if requested
@@ -270,25 +275,30 @@ class ExportCommand extends Command
         }
 
         // Process each translation from code
-        foreach ($translations as $key => $newOriginal) {
+        foreach ($translations as $key => $codeValue) {
             if (isset($existingData[$key])) {
                 // Key exists in sheet
-                $existingOriginal = $existingData[$key]['original'];
-                $existingUpdated = $existingData[$key]['updated'];
+                $sheetValue = $existingData[$key]['original'];
+                $sheetUpdated = $existingData[$key]['updated'];
 
-                if ($newOriginal === $existingOriginal) {
+                if ($codeValue === $sheetValue) {
                     // Original unchanged in code - preserve existing Updated Value
-                    $data[] = [$key, $existingOriginal, $existingUpdated];
+                    $data[] = [$key, $sheetValue, $sheetUpdated];
+                    $stats['unchanged']++;
+                } else if ($codeValue === $sheetUpdated) {
+                    // Code value is the same as sheet updated (an import occured)
+                    // Mark as unchanged
+                    $data[] = [$key, $sheetValue, $sheetUpdated];
                     $stats['unchanged']++;
                 } else {
                     // Original changed in code - keep the sheet's Original Value (baseline)
                     // but update the Updated Value to reflect the new code state
-                    $data[] = [$key, $existingOriginal, $newOriginal];
+                    $data[] = [$key, $sheetValue, $codeValue];
                     $stats['changed']++;
                 }
             } else {
                 // New key - leave Updated Value empty
-                $data[] = [$key, $newOriginal, ''];
+                $data[] = [$key, $codeValue, ''];
                 $stats['new']++;
             }
         }
