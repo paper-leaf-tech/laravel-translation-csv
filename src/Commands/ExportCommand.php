@@ -10,7 +10,8 @@ class ExportCommand extends Command
 {
     protected $signature = 'translations:export {lang=en} 
         {--clear : Clear existing sheet data before export}
-        {--force-initial : Treat as initial export, leaving Updated Value empty}';
+        {--force-initial : Treat as initial export, leaving Updated Value empty}
+        {--no-backup : Skip creating a backup of the sheet before exporting}';
 
     protected $description = 'Export Laravel translations to a connected Google Sheet.';
 
@@ -43,6 +44,19 @@ class ExportCommand extends Command
             }
 
             $this->info('Found '.count($translations).' translation keys.');
+
+            // Create backup by default (unless --no-backup)
+            if (! $this->option('no-backup')) {
+                $this->info('Creating backup sheet...');
+                $backupName = $this->sheetsService->createBackup();
+                $this->info("Backup created: {$backupName}");
+
+                // Prune old backups
+                $deleted = $this->sheetsService->pruneBackups(5);
+                if ($deleted > 0) {
+                    $this->info("Pruned {$deleted} old backup(s).");
+                }
+            }
 
             // Clear existing data if requested
             if ($this->option('clear')) {

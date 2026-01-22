@@ -302,4 +302,116 @@ class GoogleSheetsService
 
         return $credentials['client_email'] ?? null;
     }
+
+    /**
+     * Get the sheet ID (integer) for a given sheet name
+     */
+    public function getSheetId(?string $sheetName = null): ?int
+    {
+        $this->ensureInitialized();
+
+        $sheetName = $sheetName ?? $this->sheetName;
+
+        $spreadsheet = $this->service->spreadsheets->get($this->spreadsheetId);
+
+        foreach ($spreadsheet->getSheets() as $sheet) {
+            $properties = $sheet->getProperties();
+            if ($sheetName === null) {
+                // If no sheet name configured, return the first sheet's ID
+                return $properties->getSheetId();
+            }
+
+            if ($properties->getTitle() === $sheetName) {
+                return $properties->getSheetId();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Create a backup of the current sheet
+     */
+    public function createBackup(): string
+    {
+        $this->ensureInitialized();
+
+        $sheetId = $this->getSheetId();
+
+        if ($sheetId === null) {
+            throw new \RuntimeException("Could not find sheet to backup.");
+        }
+
+        $timestamp = date('Y-m-d H:i:s');
+        $backupName = "Backup {$timestamp}";
+
+        $request = new \Google\Service\Sheets\Request([
+            'duplicateSheet' => [
+                'sourceSheetId' => $sheetId,
+                'insertSheetIndex' => 1000, // Insert at the end
+                'newSheetName' => $backupName,
+            ],
+        ]);
+
+        $batchRequest = new \Google\Service\Sheets\BatchUpdateSpreadsheetRequest([
+            'requests' => [$request],
+        ]);
+
+        $this->service->spreadsheets->batchUpdate($this->spreadsheetId, $batchRequest);
+
+        return $backupName;
+    }
+
+    /**
+     * Prune old backups, keeping only the specified number of recent ones
+     */
+    public function pruneBackups(int $keep = 5): int
+    {
+        $this->ensureInitialized();
+
+        $spreadsheet = $this->service->spreadsheets->get($this->spreadsheetId);
+        $sheets = $spreadsheet->getSheets();
+
+        $backups = [];
+        foreach ($sheets as $sheet) {
+            $title = $sheet->getProperties()->getTitle();
+            if (str_starts_with($title, 'Backup ')) {
+                $backups[] = [
+                    'id' => $sheet->getProperties()->getSheetId(),
+                    'title' => $title,
+                    // Parse timestamp for sorting (Backup YYYY-MM-DD HH:mm:ss)
+                    'time' => strtotime(substr($title, 7)),
+                ];
+            }
+        }
+
+        // Sort by time descending (newest first)
+        usort($backups, fn ($a, $b) => $b['time'] <=> $a['time']);
+
+        // Slice to find ones to delete
+        $toDelete = array_slice($backups, $keep);
+
+        if (empty($toDelete)) {
+            return 0;
+        }
+
+        // Create delete requests
+        $requests = [];
+        foreach ($toDelete as $backup) {
+            $requests[] = [
+                'deleteSheet' => [
+                    'sheetId' => $backup['id'],
+                ],
+            ];
+        }
+
+        // Execute batch update
+        $batchRequest = new \Google\Service\Sheets\BatchUpdateSpreadsheetRequest([
+            'requests' => $requests,
+        ]);
+
+        $this->service->spreadsheets->batchUpdate($this->spreadsheetId, $batchRequest);
+
+        return count($toDelete);
+    }
 }

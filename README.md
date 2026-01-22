@@ -144,8 +144,11 @@ return [
 Export your Laravel translation files to Google Sheets:
 
 ```bash
-# Export English translations
+# Export English translations (automatically creates a backup)
 php artisan translations:export en
+
+# Export without creating a backup
+php artisan translations:export en --no-backup
 
 # Export other languages
 php artisan translations:export es
