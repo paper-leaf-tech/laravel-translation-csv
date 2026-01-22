@@ -14,4 +14,4 @@ tests/Support/temp/
 .idea/
 
 # Google Sheets service account credentials
-storage/app/google-service-account.json
+storage/app/laravel-translations-account.json

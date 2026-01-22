@@ -10,10 +10,10 @@ return [
     | You can download this from Google Cloud Console after creating
     | a service account with Google Sheets API access.
     |
-    | Default: storage_path('app/google-service-account.json')
+    | Default: storage_path('app/laravel-translations-account.json')
     |
     */
-    'credentials_path' => env('GOOGLE_SHEETS_CREDENTIALS_PATH', storage_path('app/google-service-account.json')),
+    'credentials_path' => env('GOOGLE_SHEETS_CREDENTIALS_PATH', storage_path('app/laravel-translations-account.json')),
 
     /*
     |--------------------------------------------------------------------------

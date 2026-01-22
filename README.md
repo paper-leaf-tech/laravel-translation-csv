@@ -64,14 +64,14 @@ Move the downloaded JSON file to your Laravel application:
 
 ```bash
 # Recommended location
-mv ~/Downloads/your-service-account-file.json storage/app/google-service-account.json
+mv ~/Downloads/your-service-account-file.json storage/app/laravel-translations-account.json
 ```
 
 > **Important**: Add this file to your `.gitignore` to prevent committing credentials to version control!
 
 ```
 # .gitignore
-storage/app/google-service-account.json
+storage/app/laravel-translations-account.json
 ```
 
 ### 5. Create and Share Your Google Sheet
@@ -99,7 +99,7 @@ Add the following to your `.env` file:
 
 ```env
 # Path to your service account JSON file
-GOOGLE_SHEETS_CREDENTIALS_PATH="${STORAGE_PATH}/app/google-service-account.json"
+GOOGLE_SHEETS_CREDENTIALS_PATH="${STORAGE_PATH}/app/laravel-translations-account.json"
 
 # Your Google Spreadsheet ID (from the URL)
 GOOGLE_SHEETS_SPREADSHEET_ID="your-spreadsheet-id-here"
@@ -291,7 +291,7 @@ If you need to find your service account email to share the sheet:
 
 ```bash
 # View the credentials file
-cat storage/app/google-service-account.json | grep client_email
+cat storage/app/laravel-translations-account.json | grep client_email
 ```
 
 Or use the helper method in your code:
